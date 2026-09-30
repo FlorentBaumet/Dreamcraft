@@ -1,0 +1,20 @@
+# DREAMCRAFT - testé avec Python 3.11, Windows 11, RTX 4070 (8 Go), CUDA 12.6
+# PyTorch : installer la variante CUDA depuis https://pytorch.org avant le reste.
+torch>=2.3
+numpy>=1.26
+opencv-python>=4.9
+matplotlib>=3.8
+imageio>=2.34
+pillow>=10.0
+tqdm>=4.66
+
+# suivi d'expériences (optionnel : les scripts tournent sans compte)
+wandb>=0.17
+
+# ingestion de vidéos YouTube (données « full brightness »)
+yt-dlp
+
+# agent sur le vrai jeu (Windows uniquement)
+mss>=9.0
+pygetwindow>=0.0.9
+pydirectinput>=1.0.4

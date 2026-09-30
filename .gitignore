@@ -1,0 +1,36 @@
+# ---------- environnement ----------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# ---------- données (≈30 Go, re-téléchargeables via scripts/) ----------
+# règles ancrées à la racine (/) : sinon src/dreamcraft/data/ serait exclu aussi
+/data/
+*.mp4
+*.webm
+*.jsonl
+*.npz
+
+# ---------- sorties d'entraînement (checkpoints, logs, rollouts) ----------
+# Les figures présentées sont copiées dans docs/figures/ (versionné).
+/outputs/
+*.pt
+*.ckpt
+*.log
+*.err
+
+# ---------- suivi d'expériences / cloud ----------
+/wandb/
+/kaggle_pkg/
+kaggle.json
+.env
+.env.*
+
+# ---------- OS ----------
+Thumbs.db
+.DS_Store
+desktop.ini
