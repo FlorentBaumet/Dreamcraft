@@ -16,5 +16,4 @@ yt-dlp
 
 # agent sur le vrai jeu (Windows uniquement)
 mss>=9.0
-pygetwindow>=0.0.9
 pydirectinput>=1.0.4

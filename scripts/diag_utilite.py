@@ -61,8 +61,9 @@ def load_model(ckpt, device):
 
 def auc(scores, labels):
     """Probabilite qu un positif soit mieux note qu un negatif (Mann-Whitney)."""
-    o = np.argsort(scores, kind="mergesort")
-    r = np.empty(len(scores)); r[o] = np.arange(1, len(scores) + 1)
+    # rangs moyens : des scores egaux comptent pour moitie, sinon l'ordre des donnees decide
+    _, inv, counts = np.unique(scores, return_inverse=True, return_counts=True)
+    r = (np.cumsum(counts) - (counts - 1) / 2)[inv]
     npos, nneg = labels.sum(), (~labels).sum()
     if npos == 0 or nneg == 0:
         return float("nan")

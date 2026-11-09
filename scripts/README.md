@@ -56,7 +56,7 @@ Les scripts sont gardés à plat, dans l'ordre où le projet les a produits. Ce 
 | `train_goal_detector.py` | GoalNet : détecteur appris de « bloc cassé » |
 | `monde2_choice.py`, `monde2_chooser.py` | choix hors ligne entre plans rêvés |
 
-## Agent et diagnostic du plafond (en cours)
+## Agent en jeu et diagnostic du plafond
 
 | script | rôle |
 |---|---|
@@ -65,3 +65,15 @@ Les scripts sont gardés à plat, dans l'ordre où le projet les a produits. Ce 
 | `diag_separation.py` | part de l'effet réel attribuée au bouton ; `--sweep` trace la loi de la portée |
 | `diag_chooser.py` | le chooseur choisit-il de taper quand le joueur réel tape ? |
 | `diag_utilite.py` | « taper ici sert-il ? » : AUC vs baselines sans modèle, stratifiée par texture |
+| `diag_ic.py` | intervalles de confiance de `diag_utilite.py`, et pollution de son label par la caméra |
+| `diag_flou.py` | la portée résiste-t-elle à une copie floutée ? Marges par fenêtre et netteté spectrale |
+| `eval_pairs.py` | la mesure du réentraînement sur les paires de la sonde, dans un monde jamais vu |
+| `train_pairs.py` | réentraînement sur les paires, programme fixe ; `DC_N` et `DC_ROOMS` règlent la quantité et le contenu |
+| `autonome.py` | **la boucle complète sans intervention** : collecte, entraînement, mesure, arène |
+| `installe_verite.py` | installe la vérité du jeu : datapack dans les mondes, taille du chat à 0 |
+| `analyse_verite.py` | temps de cassage mesuré contre la règle du jeu, label pixels contre bloc réellement cassé |
+| `test_agent.py` | tests de l'agent sans le jeu : alignement des labels, paires, fenêtre, vérité |
+| `detecteur.py` | détecteur d'une image « taper casse-t-il un bloc en 12 ticks ? », étiqueté par la vérité du jeu |
+| `arene.py` | **l'arène à salles identiques** : même salle pour chaque joueur, blocs cassés en 30 s, test de signe |
+| `detecteur_v3.py` | le même détecteur réentraîné avec les coups joués par l'agent dans les arènes |
+| `figure_arene.py` | figure de l'arène finale (`docs/figures/figure_arene.png`) |

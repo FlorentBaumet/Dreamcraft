@@ -1,21 +1,20 @@
 """
 Test de plomberie sur le vrai jeu (avant de brancher le modele).
 
-Deux questions, deux tests, aucun modele :
-  A. VOIR   : je capture bien la fenetre Minecraft, et le 64x64 ressemble-t-il
-              aux donnees d'entrainement (VPT vanilla) ?
-  B. AGIR   : mes touches/souris arrivent-elles au jeu (la vue change-t-elle) ?
+  A. VOIR  : je capture bien le jeu, et le 64x64 ressemble-t-il aux donnees ?
+  B. AGIR  : la souris arrive-t-elle au jeu, et en combien de temps l'image reagit ?
+  C. CLIC  : avec --clic, le clic gauche arrive-t-il ? Casse le bloc vise : a lancer
+             seulement dans un monde de test, face a un bloc proche.
 
-Securites :
-  - n'agit QUE si la fenetre Minecraft est au premier plan,
-  - compte a rebours avant d'envoyer quoi que ce soit,
-  - actions minuscules (petit mouvement camera), aucune action destructrice,
-  - arret immediat si la fenetre perd le focus.
+Securites : n'agit QUE si le jeu est au premier plan, compte a rebours avant
+d'envoyer quoi que ce soit, s'arrete si la fenetre perd le focus.
 
-Lance : .venv\\Scripts\\python.exe scripts\\live_smoke.py
+Lance : .venv\\Scripts\\python.exe scripts\\live_smoke.py [--clic]
 """
 from __future__ import annotations
 
+import argparse
+import ctypes
 import sys
 import time
 from pathlib import Path
@@ -25,86 +24,113 @@ import mss
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from dreamcraft import game_window as GW  # noqa: E402
+
 OUT = ROOT / "outputs" / "live"
 RES = 64
 FPS = 20.0
 
 
-def find_window():
-    import pygetwindow as gw
-    cands = [w for w in gw.getAllWindows()
-             if w.title and "minecraft" in w.title.lower() and w.width > 200]
-    if not cands:
-        return None
-    return max(cands, key=lambda w: w.width * w.height)
-
-
-def grab(sct, box):
+def grab64(sct, box):
     img = np.array(sct.grab(box))[:, :, :3]          # BGRA -> BGR
-    return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return cv2.resize(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), (RES, RES),
+                      interpolation=cv2.INTER_AREA).astype(np.float32)
 
 
-def to64(rgb):
-    return cv2.resize(rgb, (RES, RES), interpolation=cv2.INTER_AREA)
+def see(sct, box):
+    frames = []
+    t0 = time.time()
+    for i in range(20):
+        frames.append(grab64(sct, box))
+        time.sleep(max(0, (i + 1) / FPS - (time.time() - t0)))
+    hz = 20 / (time.time() - t0)
+    rows = [np.concatenate(frames[r * 5:(r + 1) * 5], axis=1) for r in range(4)]
+    big = cv2.resize(np.concatenate(rows, axis=0).astype(np.uint8), None, fx=3, fy=3,
+                     interpolation=cv2.INTER_NEAREST)
+    cv2.imwrite(str(OUT / "smoke_vue.png"), cv2.cvtColor(big, cv2.COLOR_RGB2BGR))
+    noise = float(np.mean([np.abs(frames[i + 1] - frames[i]).mean() for i in range(19)]))
+    print(f"[A] VOIR ok : {hz:.1f} Hz | luminosite {np.mean(frames) / 255:.2f} | "
+          f"bruit entre images {noise:.2f}")
+    print("    -> a verifier a l'oeil : outputs/live/smoke_vue.png")
+    return noise
+
+
+def camera_lag(sct, box, noise, hwnd):
+    """Temps entre l'envoi d'un mouvement de souris et le changement a l'image."""
+    delays = []
+    for i in range(6):
+        time.sleep(0.5)
+        if not GW.is_foreground(hwnd):
+            print("    arret : le jeu a perdu le focus")
+            return
+        before = grab64(sct, box)
+        t0 = time.perf_counter()
+        ctypes.windll.user32.mouse_event(0x0001, 60 if i % 2 == 0 else -60, 0, 0, 0)
+        while time.perf_counter() - t0 < 0.5:
+            if np.abs(grab64(sct, box) - before).mean() > max(3.0, 3 * noise):
+                delays.append((time.perf_counter() - t0) * 1000)
+                break
+    if len(delays) < 4:
+        print(f"[B] AGIR : ECHEC, la vue n'a reagi que {len(delays)} fois sur 6 "
+              "(le jeu est-il en pause ? le curseur est-il capture ?)")
+        return
+    ms = float(np.median(delays))
+    print(f"[B] AGIR ok : reaction en {ms:.0f} ms, soit {ms / 50:.1f} image a 20 Hz "
+          f"({len(delays)}/6 essais)")
+
+
+def click(sct, box, hwnd):
+    import pydirectinput
+    pydirectinput.PAUSE = 0.0
+    if not GW.is_foreground(hwnd):
+        print("[C] CLIC : saute, le jeu n'a plus le focus")
+        return
+    before = grab64(sct, box)
+    pydirectinput.mouseDown(button="left")
+    try:
+        time.sleep(1.5)
+        after = grab64(sct, box)
+    finally:
+        pydirectinput.mouseUp(button="left")
+    centre = float(np.abs(after - before)[26:38, 26:38].mean())
+    cv2.imwrite(str(OUT / "smoke_clic.png"), cv2.cvtColor(
+        cv2.resize(np.concatenate([before, after], axis=1).astype(np.uint8), None, fx=4, fy=4,
+                   interpolation=cv2.INTER_NEAREST), cv2.COLOR_RGB2BGR))
+    print(f"[C] CLIC : changement au centre {centre:.1f} -> outputs/live/smoke_clic.png "
+          "(avant/apres : le bloc a-t-il casse ?)")
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--clic", action="store_true", help="teste aussi le clic gauche (casse un bloc)")
+    args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
-    w = find_window()
-    if w is None:
-        print("ECHEC : aucune fenetre Minecraft trouvee.")
-        print("  -> Lance Minecraft (Java), chargé dans un monde, en mode FENETRE.")
+    found = GW.find_game_window()
+    if found is None:
+        print("ECHEC : aucune fenetre du jeu trouvee (titre attendu : 'Minecraft 1.19.4...').")
+        print("  -> Lance Minecraft Java, charge un monde, en mode FENETRE.")
         sys.exit(1)
-    print(f"fenetre trouvee : '{w.title}'  {w.width}x{w.height} @ ({w.left},{w.top})")
-
-    # zone client approximative (on retire la barre de titre Windows ~31 px)
-    box = {"left": w.left + 8, "top": w.top + 31,
-           "width": max(w.width - 16, 64), "height": max(w.height - 39, 64)}
-    print(f"zone capturee : {box['width']}x{box['height']} (ratio {box['width']/box['height']:.2f})")
+    hwnd, title = found
+    box = GW.client_box(hwnd)
+    print(f"fenetre : '{title}' | zone {box['width']}x{box['height']} "
+          f"(ratio {box['width'] / max(box['height'], 1):.2f}, attendu 1.78)")
 
     with mss.mss() as sct:
-        # ---------- A. VOIR ----------
-        frames = []
-        t0 = time.time()
-        for i in range(20):
-            frames.append(to64(grab(sct, box)))
-            time.sleep(max(0, (i + 1) / FPS - (time.time() - t0)))
-        hz = 20 / (time.time() - t0)
-        big = np.concatenate([np.concatenate(frames[r * 5:(r + 1) * 5], axis=1) for r in range(4)],
-                             axis=0)
-        big = cv2.resize(big, None, fx=3, fy=3, interpolation=cv2.INTER_NEAREST)
-        cv2.imwrite(str(OUT / "smoke_vue.png"), cv2.cvtColor(big, cv2.COLOR_RGB2BGR))
-        luma = np.mean([f.mean() for f in frames]) / 255
-        bouge = np.mean([np.abs(frames[i + 1].astype(float) - frames[i].astype(float)).mean()
-                         for i in range(len(frames) - 1)])
-        print(f"[A] VOIR ok : {hz:.1f} Hz | luma {luma:.2f} | mouvement inter-frame {bouge:.2f}")
-        print(f"    -> verifie a l'oeil : {OUT.relative_to(ROOT)}\\smoke_vue.png")
-
-        # ---------- B. AGIR ----------
-        import pygetwindow as gw
-        act = gw.getActiveWindow()
-        if act is None or "minecraft" not in (act.title or "").lower():
-            print("[B] AGIR : SAUTE - Minecraft n'est pas la fenetre active.")
-            print("    -> clique dans le jeu (curseur capture) et relance ce script.")
+        noise = see(sct, box)
+        if not GW.is_foreground(hwnd):
+            print("Clique dans le jeu dans les 5 s (curseur capture, pas de menu ouvert)...")
+            t0 = time.time()
+            while time.time() - t0 < 5 and not GW.is_foreground(hwnd):
+                time.sleep(0.1)
+        if not GW.is_foreground(hwnd):
+            print("Le jeu n'est pas au premier plan : tests B et C sautes.")
             return
-        print("[B] AGIR dans 3 s : petit mouvement de camera (rien de destructeur)...")
+        print("Depart dans 3 s...")
         time.sleep(3)
-        import pydirectinput
-        pydirectinput.PAUSE = 0.0
-        avant = to64(grab(sct, box))
-        # rotation camera : souris relative (Minecraft capture le curseur)
-        import ctypes
-        for _ in range(12):
-            ctypes.windll.user32.mouse_event(0x0001, 40, 0, 0, 0)   # MOUSEEVENTF_MOVE dx=+40
-            time.sleep(1 / FPS)
-        apres = to64(grab(sct, box))
-        delta = float(np.abs(apres.astype(float) - avant.astype(float)).mean())
-        cv2.imwrite(str(OUT / "smoke_action.png"), cv2.cvtColor(
-            cv2.resize(np.concatenate([avant, apres], axis=1), None, fx=4, fy=4,
-                       interpolation=cv2.INTER_NEAREST), cv2.COLOR_RGB2BGR))
-        verdict = "OK, la vue a change" if delta > 6 else "AUCUN EFFET visible"
-        print(f"    delta apres rotation camera : {delta:.1f} -> {verdict}")
-        print(f"    -> avant/apres : {OUT.relative_to(ROOT)}\\smoke_action.png")
+        camera_lag(sct, box, noise, hwnd)
+        if args.clic:
+            click(sct, box, hwnd)
 
 
 if __name__ == "__main__":

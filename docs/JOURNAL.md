@@ -270,9 +270,89 @@ l'IDM et confondue avec le mouvement - cf. l'échec confondu de v13a). Données 
 Politiques : `probe` (paires, cible SEP) · `scripted` (données riches, 3/4 minage) · `chooser`
 (démo Monde 2, deux étages : taper si l'effet du bouton dépasse ε, sinon se déplacer) · `random`.
 
+## 2026-11-04 - Audit de mes propres chiffres
+
+J'ai relu tous les chiffres du README comme le ferait un évaluateur, puis j'ai mesuré ce qui manquait (`diag_flou.py`, `diag_ic.py`).
+
+| ce que j'écrivais | ce que je mesure |
+|---|---|
+| portée 69 pas | même modèle (v4), même épisode : 69 à H=128, plus de 96 à H=96, car les départs tirés changent. v7b à H=96 : 43 [19-76]. Le 69 attribué à v7b plus haut n'a pas de sortie stockée : seul H=64 l'est, sans croisement |
+| le rêve bat la baseline | contre un flou sans modèle, h=8-24 : marge de +7 à +24 % sur v4, et le flou capte 46 à 85 % du gain sur la copie nette. h=48-80 : -5 à +21 % |
+| rêve net au début | énergie haute fréquence à 0,34-0,55 du réel dès le premier pas |
+| causal « sous le hasard » | nvcave 47,6 % [41,7 ; 53,5] : le hasard est dans l'intervalle. Quart de coups à caméra calme : 53,2 % et 49,3 % |
+| label propre | l'amplitude de la caméra seule fait 72 % d'AUC stratifiée sur nvcave : le label est pollué |
+| choix 77-90 % | rappel sur les positifs : taper toujours ferait 100 % |
+| épisodes jamais vus | strip et nvcave viennent chacun d'une seule vidéo |
+
+- **Leçon 21 : une baseline se choisit contre le biais de la loss, pas par habitude.** En MSE, la frame gelée nette est une référence trop facile, car le flou est récompensé. J'avais construit ma métrique pour ne pas me laisser tromper par les pixels fixes, et je me suis laissé tromper par le flou. Le premier croisement est aussi un mauvais résumé : il suffit d'un pas bruité pour faire chuter la portée de 96 à 6 (treechop contre flou sigma=4). Je préfère désormais une marge moyenne sur une fenêtre, avec un intervalle.
+- **À corriger ensuite :** bootstrap par épisode plutôt que par coup, label indépendant de la caméra, baseline sans modèle pour le chooseur, données de validation venant d'une autre vidéo.
+
+## 2026-11-05 - Première boucle complète en jeu
+
+Mon agent a joué pour la première fois. Avant de le lancer, j'ai dû corriger trois bugs qui n'auraient donné aucune erreur : labels décalés d'un pas, témoin placé après le coup (il regardait un trou), et détection de fenêtre trop large. Sonde automatisée (`agent_loop.py --sessions N`) : 8 sessions dans un monde d'entraînement, 5 dans un monde de test jamais vu, 31 paires par session, caméra immobile pendant les paires.
+
+Mesure fixée avant les données (`eval_pairs.py`), sur 144 paires de test :
+
+| | AUC (50 % = hasard) |
+|---|---|
+| contraste du bloc, sans modèle, sens appris sur l'entraînement | 75,9 % [59,7 ; 86,9] |
+| v13b, score jumeau | 42,6 % [35,2 ; 47,9] |
+| v15, réentraîné 6 min sur 6 sessions | **55,5 %** [51,2 ; 59,4] |
+
+Gain apparié : +12,8 points [+5,5 ; +20,7] au bootstrap par paire, le plus prudent. Il est positif sur les 5 sessions de test.
+
+| changement au centre, 12 images après le début du coup | réel | rêve avec bouton v13b | rêve avec bouton v15 |
+|---|---|---|---|
+| coup utile | 0,060 | 0,086 | 0,063 |
+| coup dans le vide | 0,002 | 0,108 | 0,067 |
+
+- **Leçon 22 : mesurer l'effet moyen du bouton ne dit pas si cet effet est justifié.** Mon SEP récompensait un modèle qui casse tout dès qu'on tape. Les coups dans le vide le montrent : pour le rêve, bouton égale cassé, sans notion de portée. Le réentraînement a corrigé l'amplitude, pas encore la distinction.
+- **Limites :** 5 sessions de test ; salles dans la pierre seulement ; le seuil du label et le sens de la référence sont appris sur le monde d'entraînement, mais j'ai changé l'échelle du seuil et ajouté l'exclusion des témoins après avoir vu les données d'entraînement, avant les scores du test ; le sens de la référence a été ajouté après avoir vu le test à l'envers, en l'apprenant sur l'entraînement.
+- **Prochaine question :** le modèle n'a vu que 186 coups, dont une soixantaine dans le vide. La courbe AUC selon le nombre de sessions dira si les données suffisent, et testera enfin ma thèse sur la densité avec plus de deux points.
+
+## 2026-11-06 - Une nuit de jeu autonome : plus de données n'aide pas le rêve
+
+`autonome.py` a tourné seul de 0 h 56 à 9 h 11 : 6 cycles de collecte (168 sessions annotées par la vérité du jeu), réentraînement, mesure sur le monde de test, puis arène.
+
+- AUC du rêve « ce coup va-t-il servir ? » : entre 40,5 % et 49,4 % selon le cycle et la composition des données. Elle ne monte pas avec la quantité. Elle reste sous v15 (55,5 %) et sous le contraste sans modèle (75,9 %).
+- Dans l'arène, l'agent qui rêve a tapé 150 décisions sur 150 dans 15 parties sur 18 : il ne décide rien.
+- La vérité du jeu tient : sur 5 208 coups, le temps de cassage mesuré égale la règle du jeu pour tous les blocs ; hors de portée, 4 blocs cassés sur 1 540 coups. Le label tiré des pixels n'est d'accord avec elle que 81 % du temps (992 « cassé » sans bloc cassé).
+
+- **Leçon 23 : quand plus de données ne fait rien monter, c'est la question qui est mal posée.** Le rêve doit prédire 12 images entières pour répondre oui ou non. Je demande la réponse directement, avec l'étiquette du jeu au lieu de celle des pixels.
+
+## 2026-11-08 - Un détecteur d'une image bat le rêve
+
+Petit réseau convolutif, une image 64×64, question : « si je tape maintenant, un bloc cassera-t-il dans les 12 ticks ? ». Étiquette : la vérité du jeu. Programme fixe (15 époques, une graine), règle de réussite écrite avant : battre le contraste, intervalle de l'écart au-dessus de 0. Test : 5 nouvelles sessions dans le monde de test, enregistrées avec la vérité (`vt_test`).
+
+| AUC | détecteur | contraste | écart IC 95 % |
+|---|---|---|---|
+| validation, 1 023 coups, 33 sessions | 92,9 % | 71,4 % | [+15,7 ; +28,1] |
+| test, 155 coups, 5 sessions | 91,1 % | 70,2 % | [+10,7 ; +33,1] |
+| test, terrain naturel seul, 93 coups (analyse ajoutée après) | 85,7 % | 74,5 % | |
+
+Les salles d'un seul bloc sont le cas facile (98,5 %) : le chiffre honnête est celui du terrain naturel.
+
+## 2026-11-09 - L'arène à salles identiques, et un agent qui réapprend sur ses erreurs
+
+Pour comparer des joueurs, il faut leur donner la même partie. `arene.py` creuse une salle sous terre, la copie 60 blocs plus bas, et la remet à l'identique avant chaque joueur : même image de départ (écart 0 sur 255), même bloc visé. Score : blocs réellement cassés en 30 s, lus dans le jeu. Verdict : test de signe sur les manches, p < 0,05, fixé avant.
+
+Le premier essai est tombé sous un océan : salle noyée, et sous l'eau on casse 5 fois moins vite. L'eau, la lave et les algues autour de la salle sont maintenant remplacées par de la pierre avant la copie.
+
+| arène | manches | résultat |
+|---|---|---|
+| 1 | 8 | `detecteur` 11,4 blocs : bat taper et le rêveur, pas le hasard (8,6) ni le script (16,0) |
+| 2 | 8 | `verifie` (vérifie que l'image change, sinon s'approche) 16,8 : ne bat pas le hasard de façon prouvée (6/7) |
+| 3 | 20 | `verifie` 13,2 : bat le hasard (14/17, p = 0,006), perd contre le script (6 manches sur 19) |
+| 4 | 16, terrain neuf | `appris` 30,6 : bat `verifie` 15/15, le script 15/16, le hasard 15/16 |
+
+Entre les arènes 3 et 4, une seule chose change : le détecteur est réentraîné avec 2 194 coups joués par l'agent dans les arènes, étiquetés par le jeu (`detecteur_v3.py`). Même réseau, même programme. Mesuré avec la vérité, `verifie` frappait un bloc hors de portée 68 % du temps : il creuse un tunnel, puis tape sur le fond. Le détecteur d'origine n'avait jamais vu de tunnel. Après réentraînement, les frappes dans le vide tombent de 65 % à 28 %.
+
+- **Leçon 24 : les erreurs d'un agent sont les données qui lui manquent.** La sonde produisait des coups propres, sur place. L'agent, lui, se met dans des situations que la sonde ne crée jamais. Quelques heures de ses propres parties, étiquetées par le jeu, ont corrigé ce que la sonde ne pouvait pas montrer.
+- **Limites :** `verifie` et `appris` ont été conçus après avoir vu les arènes 1 à 3 ; l'arène 4 est le seul test propre, jouée une fois. Deux salles sur 16 étaient ratées, les mêmes pour tous (départ dans un bloc, salle ouverte sur une grotte inondée) ; sans elles, 14/14. Le réentraînement coûte 1,9 point d'AUC sur l'ancienne validation (écart [-3,4 ; -0,6]). Le script `mine_et_balaye` garde la même graine d'une manche à l'autre : ses scores se répètent d'une arène à l'autre au même numéro de manche, ce qui vient de son tirage, pas des salles (images de départ vérifiées différentes).
+- **Ce que ça ne dit pas :** le world model n'a aucun rôle dans ce gain. Le rêveur fait à peine mieux que taper sans bouger.
+
 ### Prochaine session - pistes classées
-1. ~~Résultat v3b~~ → fait : nouveau modèle de référence.
-2. Scénario S2 quantifié (casser un bloc : le bloc disparaît-il dans le rêve ?) - exploite l'expertise (I4).
-3. Rollouts plus longs (H=64-128) : où v3 casse-t-il vraiment ?
-4. LPIPS en métrique complémentaire (perceptuelle, moins « moyennante »).
-5. Monde 2 (premier pas) : choisir entre 2 actions imaginées vers un but visible, en offline d'abord.
+1. Construction des salles : vérifier que la cavité est creusée, refuser une salle ouverte sur une grotte ou de l'eau.
+2. Remettre le world model dans la décision là où le détecteur ne suffit pas : un but à plusieurs étapes (atteindre un minerai visible, puis le casser).
+3. Une seconde arène finale sur d'autres manches, pour savoir si le 15/15 tient.
+4. Une autre tâche que creuser : couper du bois en surface (il faut une hache et ajouter les troncs à la vérité du jeu).
