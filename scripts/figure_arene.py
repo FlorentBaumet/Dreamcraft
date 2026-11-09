@@ -46,7 +46,7 @@ def main():
     ordre = ["appris", "mine_et_balaye", "verifie", "hasard"]
     plt.rcParams.update({"font.size": 10, "text.color": ENCRE, "axes.labelcolor": ENCRE2,
                          "xtick.color": ENCRE2, "ytick.color": ENCRE2})
-    fig, (a, b) = plt.subplots(1, 2, figsize=(10, 4.2), gridspec_kw={"width_ratios": [2.2, 1]},
+    fig, (a, b) = plt.subplots(1, 2, figsize=(10, 5.2), gridspec_kw={"width_ratios": [2.2, 1]},
                                facecolor=FOND)
     rng = np.random.default_rng(0)
     for i, nom in enumerate(ordre):
@@ -61,6 +61,8 @@ def main():
     a.set_xticks(range(len(ordre)), [f"{NOMS[n]}\nmoyenne {np.mean(scores[n]):.1f}".replace(".", ",")
                                      for n in ordre])
     a.set_ylabel("blocs réellement cassés en 30 s")
+    a.set_ylim(0, 45)
+    a.set_yticks(range(0, 46, 5))
     a.set_title("Arène finale : 16 manches, mêmes salles pour tous", loc="left", fontsize=11)
     a.text(0.99, 0.97, "point = une manche ; cercle vide = salle ratée (manches 12-13)",
            transform=a.transAxes, ha="right", va="top", fontsize=8, color=ENCRE2)
