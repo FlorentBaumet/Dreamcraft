@@ -4,6 +4,8 @@ Arene : l'agent qui decide avec le detecteur, contre des references, dans des sa
 Chaque manche : un nouvel endroit sous terre, une petite cavite de 3 x 2 x 3 (les murs sont a
 portee), copiee sous la carte avant que quiconque joue. Avant chaque joueur, la copie est remise
 en place : tout le monde trouve exactement les memes blocs, seul le joueur change.
+Autour de la salle, liquides, gravier, sable et grottes voisines sont remplaces par de la pierre ;
+une salle ou le bloc vise au depart n'est pas a portee (verite du jeu) est refusee.
 Ordre des joueurs tournant d'une manche a l'autre.
 
 Joueurs :
@@ -131,18 +133,50 @@ class DetecteurPolicy:
         return self.chercher(h)
 
 
-def nouvelle_manche(env):
+def creuse(env):
     """Nouvel endroit, cavite creusee, copie de sauvegarde 60 blocs plus bas."""
     env.command("/kill @e[type=marker,tag=dc_ancre]")
     env.command("/tp @s ~60 30 ~ 0 0")
     time.sleep(2.0)                          # le terrain doit etre charge, sinon /fill echoue
     env.command('/execute at @s align xyz positioned ~0.5 ~ ~0.5 run summon marker ~ ~ ~ {Tags:["dc_ancre"]}')
-    # sous un ocean, la salle serait noyee : sous l'eau on casse 5 fois moins vite
-    for liquide in ("water", "lava", "seagrass", "tall_seagrass", "kelp", "kelp_plant"):
-        env.command(ICI + f"fill ~-12 ~-4 ~-12 ~12 ~6 ~12 stone replace {liquide}")
+    # sous un ocean, la salle serait noyee : sous l'eau on casse 5 fois moins vite.
+    # Gravier et sable : ils tomberaient dans la cavite (arene 4, manche 12 : depart dans le gravier).
+    for bloc in ("water", "lava", "seagrass", "tall_seagrass", "kelp", "kelp_plant", "gravel", "sand"):
+        env.command(ICI + f"fill ~-12 ~-4 ~-12 ~12 ~6 ~12 stone replace {bloc}")
+    # une grotte voisine ouvrirait la salle sur le vide (arene 4, manche 13) : on la bouche autour
+    for vide in ("air", "cave_air"):
+        env.command(ICI + f"fill ~-5 ~-3 ~-5 ~5 ~4 ~5 stone replace {vide}")
     env.command(ICI + "fill ~-1 ~ ~-1 ~1 ~1 ~1 air")
-    time.sleep(1.0)                          # gravier ou sable du plafond : on les laisse tomber
+    time.sleep(1.0)
     env.command(ICI + "clone ~-12 ~-4 ~-12 ~12 ~6 ~12 ~-12 ~-60 ~-12")
+
+
+def verite_fraiche(env, attente=0.5):
+    """La verite du jeu, apres avoir verifie qu'elle avance : figee, elle ferait refuser des salles a tort."""
+    avant = int(env.read_truth()[0])
+    time.sleep(attente)
+    t = env.read_truth()
+    if t[0] < 0 or t[0] == avant:
+        raise RuntimeError("la verite du jeu ne bouge plus (jeu en pause ? journal change ?)")
+    return t
+
+
+def salle_ok(env):
+    """Verite du jeu au depart : un bloc connu doit etre vise, a portee, et pas sur la tete du joueur."""
+    remet(env)
+    tick, bloc, dist = (int(x) for x in verite_fraiche(env)[:3])
+    ok = tick >= 0 and 1 <= bloc <= len(V.BLOCS) and 0 < dist <= V.PORTEE
+    if not ok:
+        print(f"[salle refusee] bloc vise {bloc}, distance {dist / 10:.1f} : on creuse plus loin", flush=True)
+    return ok
+
+
+def nouvelle_manche(env, essais=5):
+    for _ in range(essais):
+        creuse(env)
+        if salle_ok(env):
+            return
+    raise RuntimeError(f"aucune salle valable en {essais} essais")
 
 
 def remet(env):

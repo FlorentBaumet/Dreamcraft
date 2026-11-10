@@ -103,7 +103,7 @@ Un petit réseau convolutif regarde **une seule image** et répond à la questio
 
 L'agent `verifie` tape quand le détecteur dit oui ; sinon il tourne la tête et avance. Si 12 ticks de frappe ne changent rien au centre de l'image, il s'approche, puis va chercher ailleurs. Sur 20 manches, il bat le hasard (14 manches sur 17, p = 0,006), mais pas le script `mine_et_balaye` (« tape devant toi, tourne de temps en temps »).
 
-La vérité du jeu montre pourquoi : **68 % de ses frappes visent un bloc hors de portée**. Il creuse un tunnel, puis tape sur le fond, trop loin. Le détecteur n'avait jamais vu de tunnel : ses données venaient d'une sonde qui tape sur place.
+La vérité du jeu montre pourquoi : **68 % de ses frappes visent un bloc hors de portée**, presque toujours entre 4,5 et 8 blocs, juste trop loin. Le détecteur n'avait jamais appris cette limite : ses données venaient d'une sonde qui tape sur place, souvent face à un mur proche.
 
 Le correctif ne touche pas aux règles de l'agent. On réentraîne **le même réseau**, avec le même programme, en ajoutant 2 194 coups joués dans les arènes par ses versions précédentes, étiquetés par le jeu. Sur des coups hors de portée mis de côté, l'ancien détecteur disait « ça casse » 100 % du temps, le nouveau 1 %.
 
@@ -122,8 +122,10 @@ Manche par manche, `appris` casse plus de blocs que `verifie` 15 fois sur 15 (la
 
 Les frappes dans le vide passent de 65 % à 28 %, et l'agent casse **près de deux fois plus de blocs que le script** (30,6 contre 16,2).
 
+**Contre-épreuve, dans des salles fermées.** Une seconde arène bouche les grottes autour de chaque salle. `verifie` n'y frappe presque plus trop loin (12 % des frappes) : ses frappes perdues visaient surtout les parois des grottes voisines. L'avance d'`appris` se réduit (33,7 blocs contre 27,5) mais tient : 6 manches sur 6 (p = 0,016). Contre le script, l'écart reste du simple au double (33,7 contre 16,3). Cette arène s'est arrêtée après 6 manches, sur un bug corrigé depuis : à minuit, le jeu change de journal et la vérité s'était figée.
+
 **Limites, à lire avec le résultat :**
-- `verifie` et `appris` ont été conçus après avoir vu les arènes précédentes. L'arène finale est le seul test propre, et elle n'a été jouée qu'une fois.
+- `verifie` et `appris` ont été conçus après avoir vu les arènes précédentes. L'arène finale et la contre-épreuve sont les seuls tests propres.
 - Deux salles sur 16 étaient mal construites, les mêmes pour tous : départ coincé dans un bloc (manche 12), salle ouverte sur une grotte inondée (manche 13). Sans elles, `appris` bat `verifie` 14 fois sur 14.
 - Le réentraînement coûte un peu sur l'ancienne tâche : 91,0 % contre 92,9 % en validation (écart [-3,4 ; -0,6]), 87,8 % contre 91,1 % en test (écart non significatif).
 - Une seule tâche (casser des blocs sous terre), un seul outil (pioche en diamant).
@@ -150,7 +152,7 @@ Les frappes dans le vide passent de 65 % à 28 %, et l'agent casse **près de de
 
 ## Journal de recherche
 
-Tout le cheminement est consigné dans [docs/JOURNAL.md](docs/JOURNAL.md) : 24 leçons, **pistes négatives comprises** (gamma simulé, montée en capacité, résolution 96 px, première tentative de données confondue). C'est le document à lire pour comprendre *pourquoi* chaque choix a été fait.
+Tout le cheminement est consigné dans [docs/JOURNAL.md](docs/JOURNAL.md) : 25 leçons, **pistes négatives comprises** (gamma simulé, montée en capacité, résolution 96 px, première tentative de données confondue). C'est le document à lire pour comprendre *pourquoi* chaque choix a été fait.
 
 ## Organisation du repo
 

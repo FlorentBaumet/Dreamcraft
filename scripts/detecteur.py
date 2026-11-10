@@ -10,11 +10,15 @@ a un intervalle de confiance a 95 % entierement au-dessus de 0. Programme fixe, 
 d'epoque ni de reglage sur la validation ou le test.
 
 Lance : .venv\\Scripts\\python.exe scripts\\detecteur.py
+
+En foret (un tronc casse-t-il en 12 ticks ?), memes regles, autres donnees :
+  DC_LABEL=tronc_12 DC_TRAIN="dc_foret_probe*" DC_TEST="vt_foret*" DC_DET_OUT=outputs/detecteur_bois
 """
 from __future__ import annotations
 
 import importlib.util as ilu
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -30,7 +34,9 @@ _s.loader.exec_module(AV)
 E, U = AV.E, AV.E.U
 
 DATA = ROOT / "data" / "processed_agent"
-OUT = ROOT / "outputs" / "detecteur"
+OUT = ROOT / os.environ.get("DC_DET_OUT", "outputs/detecteur")
+LABEL = os.environ.get("DC_LABEL", "casse_12")
+TRAIN, TEST = os.environ.get("DC_TRAIN", "dc_train*"), os.environ.get("DC_TEST", "vt_test*")
 EPOCHS, BATCH, SEED, N_BOOT = 15, 128, 0, 2000
 
 
@@ -49,7 +55,7 @@ def charge(paths):
         fr = E.C.load_episode_u8(p)[0]
         t = [c["t"] for c in cs]
         X.append(masque(fr[t].copy()))
-        y += [c["casse_12"] for c in cs]
+        y += [c[LABEL] for c in cs]
         g += [k] * len(cs)
         tex.append(U.b0_texture(fr, t))
     return np.concatenate(X), np.array(y), np.array(g), np.concatenate(tex)
@@ -92,16 +98,16 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     OUT.mkdir(parents=True, exist_ok=True)
 
-    train_files = [p for p in sorted(DATA.glob("dc_train*.npz")) if "truth" in np.load(p).files]
+    train_files = [p for p in sorted(DATA.glob(f"{TRAIN}.npz")) if "truth" in np.load(p).files]
     val_files = train_files[4::5]
     fit_files = [p for p in train_files if p not in val_files]
-    test_files = sorted(DATA.glob("vt_test*.npz"))
+    test_files = sorted(DATA.glob(f"{TEST}.npz"))
     t0 = time.time()
     fit, val, test = charge(fit_files), charge(val_files), charge(test_files)
     print(f"coups : entrainement {len(fit[1])} ({len(fit_files)} sessions), validation {len(val[1])} "
           f"({len(val_files)}), test {len(test[1])} ({len(test_files)}) | chargement {time.time() - t0:.0f} s")
     for nom, d in (("entrainement", fit), ("validation", val), ("test", test)):
-        print(f"  {nom} : {d[1].mean():.0%} de coups qui cassent un bloc en 12 ticks")
+        print(f"  {nom} : {d[1].mean():.0%} de coups positifs ({LABEL})")
 
     sign = 1.0 if U.auc(fit[3], fit[1]) >= 0.5 else -1.0           # sens du contraste, appris ici seulement
     m = Net().to(device)

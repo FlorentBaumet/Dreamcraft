@@ -19,21 +19,28 @@ from pathlib import Path
 
 import numpy as np
 
-# nom, durete, la pioche est-elle l'outil efficace ?
+# nom, durete, outil efficace. Ajouter en fin de liste seulement : l'indice est le numero du bloc
+# dans les sessions deja enregistrees.
 BLOCS = [
-    ("stone", 1.5, True), ("granite", 1.5, True), ("diorite", 1.5, True), ("andesite", 1.5, True),
-    ("tuff", 1.5, True), ("deepslate", 3.0, True), ("cobblestone", 2.0, True),
-    ("netherrack", 0.4, True), ("obsidian", 50.0, True),
-    ("coal_ore", 3.0, True), ("iron_ore", 3.0, True), ("copper_ore", 3.0, True),
-    ("gold_ore", 3.0, True), ("redstone_ore", 3.0, True), ("lapis_ore", 3.0, True),
-    ("diamond_ore", 3.0, True), ("emerald_ore", 3.0, True),
-    ("dirt", 0.5, False), ("gravel", 0.6, False), ("sand", 0.5, False),
-    ("oak_planks", 2.0, False), ("pumpkin", 1.0, False),
+    ("stone", 1.5, "pioche"), ("granite", 1.5, "pioche"), ("diorite", 1.5, "pioche"),
+    ("andesite", 1.5, "pioche"), ("tuff", 1.5, "pioche"), ("deepslate", 3.0, "pioche"),
+    ("cobblestone", 2.0, "pioche"), ("netherrack", 0.4, "pioche"), ("obsidian", 50.0, "pioche"),
+    ("coal_ore", 3.0, "pioche"), ("iron_ore", 3.0, "pioche"), ("copper_ore", 3.0, "pioche"),
+    ("gold_ore", 3.0, "pioche"), ("redstone_ore", 3.0, "pioche"), ("lapis_ore", 3.0, "pioche"),
+    ("diamond_ore", 3.0, "pioche"), ("emerald_ore", 3.0, "pioche"),
+    ("dirt", 0.5, "pelle"), ("gravel", 0.6, "pelle"), ("sand", 0.5, "pelle"),
+    ("oak_planks", 2.0, "hache"), ("pumpkin", 1.0, "hache"),
+    # surface : les arbres
+    ("oak_log", 2.0, "hache"), ("birch_log", 2.0, "hache"), ("spruce_log", 2.0, "hache"),
+    ("dark_oak_log", 2.0, "hache"), ("jungle_log", 2.0, "hache"), ("acacia_log", 2.0, "hache"),
+    ("mangrove_log", 2.0, "hache"), ("oak_leaves", 0.2, None), ("birch_leaves", 0.2, None),
+    ("grass_block", 0.6, "pelle"),
 ]
+TRONCS = [b[0] for b in BLOCS if b[0].endswith("_log")]
 AUTRE, PORTEE_MAX, PORTEE = 99, 80, 45      # distances en 1/10 de bloc, portee du joueur : 4,5
 BUTIN = ["cobblestone", "coal", "raw_iron", "raw_copper", "raw_gold", "redstone", "lapis_lazuli",
          "diamond", "emerald", "dirt", "gravel", "flint", "sand", "granite", "diorite", "andesite",
-         "tuff", "netherrack", "obsidian", "oak_planks", "pumpkin", "cobbled_deepslate"]
+         "tuff", "netherrack", "obsidian", "oak_planks", "pumpkin", "cobbled_deepslate"] + TRONCS
 
 # Salles d'examen : meme geste, duree de cassage differente (de 2 a 188 ticks a la pioche en diamant).
 # Pas de sable ni de gravier : ils tomberaient du plafond.
@@ -53,11 +60,12 @@ def bloc_nom(i: int) -> str:
     return BLOCS[i - 1][0] if 1 <= i <= len(BLOCS) else "autre"
 
 
-def ticks_theorie(nom: str) -> int:
-    """Ticks pour casser le bloc a la pioche en diamant, sans enchantement, les pieds au sol.
-    Regle du jeu : progres par tick = vitesse de l'outil / durete / 30."""
-    _, durete, pioche = BLOCS[bloc_id(nom) - 1]
-    return math.ceil(round(durete * 30 / (8 if pioche else 1), 6))
+def ticks_theorie(nom: str, outil: str = "pioche") -> int:
+    """Ticks pour casser le bloc avec un outil en diamant, sans enchantement, les pieds au sol.
+    Regle du jeu : progres par tick = vitesse de l'outil / durete / 30 (vitesse 8 si l'outil
+    est le bon, 1 sinon)."""
+    _, durete, efficace = BLOCS[bloc_id(nom) - 1]
+    return math.ceil(round(durete * 30 / (8 if efficace == outil else 1), 6))
 
 
 def salle_de(i: int, mode: str):
@@ -138,16 +146,30 @@ class JournalJeu:
     """Lit les lignes de verite au fur et a mesure que le jeu les ecrit."""
 
     def __init__(self, path):
+        self.path = Path(path)
         self.f = open(path, "rb")
         self.f.seek(0, os.SEEK_END)
         self.reste = b""
         self.etat = np.array([-1, 0, 0, 0, 0], dtype=np.int64)
         self.lignes = 0
 
+    def _nouveau_fichier(self) -> bool:
+        """A minuit, le jeu archive latest.log et en recommence un : il faut le rouvrir au debut
+        (arene du 10/11 : la verite s'est figee a 00:00, cinq salles refusees a tort)."""
+        try:
+            st = os.stat(self.path)
+        except OSError:
+            return False
+        return st.st_size < self.f.tell() or st.st_ino != os.fstat(self.f.fileno()).st_ino
+
     def lire(self) -> np.ndarray:
         """Le dernier etat connu. `casse` couvre tous les ticks recus depuis l'appel precedent :
         un bloc casse n'est jamais perdu, meme si deux ticks arrivent en meme temps."""
         data = self.reste + self.f.read()
+        if self._nouveau_fichier():
+            self.f.close()
+            self.f = open(self.path, "rb")
+            data, self.reste = data + self.f.read(), b""
         complet, _, self.reste = data.rpartition(b"\n")
         casse = 0
         for m in LIGNE.finditer(complet):
@@ -164,3 +186,7 @@ class JournalJeu:
 
 def blocs_casses(truth: np.ndarray) -> int:
     return int((truth[:, 3] > 0).sum())
+
+
+def troncs_casses(truth: np.ndarray) -> int:
+    return int(np.isin(truth[:, 3], [bloc_id(n) for n in TRONCS]).sum())

@@ -77,3 +77,4 @@ Les scripts sont gardés à plat, dans l'ordre où le projet les a produits. Ce 
 | `arene.py` | **l'arène à salles identiques** : même salle pour chaque joueur, blocs cassés en 30 s, test de signe |
 | `detecteur_v3.py` | le même détecteur réentraîné avec les coups joués par l'agent dans les arènes |
 | `figure_arene.py` | figure de l'arène finale (`docs/figures/figure_arene.png`) |
+| `foret.py` | en surface, en forêt : collecte de sonde et arène « couper du bois » (score : troncs cassés) |

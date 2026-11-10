@@ -184,6 +184,10 @@ def test_journal_du_jeu():
                 f.write(coupe[20:])
             r = j.lire()
             assert r[0] == 5 and r[3] == 7
+            # minuit : le jeu recommence un journal vide, la verite doit continuer
+            p.write_bytes(ligne(6, casse=3))
+            r = j.lire()
+            assert r[0] == 6 and r[3] == 3, "apres le changement de journal, la verite doit suivre"
         finally:
             j.close()
 
@@ -193,6 +197,9 @@ def test_regle_de_cassage():
                "pumpkin": 30, "oak_planks": 60, "obsidian": 188}
     for nom, ticks in attendu.items():
         assert V.ticks_theorie(nom) == ticks, nom
+    assert V.ticks_theorie("oak_log", "hache") == 8 and V.ticks_theorie("oak_log") == 60
+    assert V.ticks_theorie("oak_leaves", "hache") == 6
+    assert V.bloc_id("pumpkin") == 22, "les anciens numeros de bloc ne doivent pas bouger"
     assert all(V.bloc_nom(V.bloc_id(b[0])) == b[0] for b in V.BLOCS)
     assert V.bloc_nom(0) == "rien" and V.bloc_nom(V.AUTRE) == "autre"
 

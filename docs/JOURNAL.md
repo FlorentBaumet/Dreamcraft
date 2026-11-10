@@ -345,14 +345,31 @@ Le premier essai est tombé sous un océan : salle noyée, et sous l'eau on cass
 | 3 | 20 | `verifie` 13,2 : bat le hasard (14/17, p = 0,006), perd contre le script (6 manches sur 19) |
 | 4 | 16, terrain neuf | `appris` 30,6 : bat `verifie` 15/15, le script 15/16, le hasard 15/16 |
 
-Entre les arènes 3 et 4, une seule chose change : le détecteur est réentraîné avec 2 194 coups joués par l'agent dans les arènes, étiquetés par le jeu (`detecteur_v3.py`). Même réseau, même programme. Mesuré avec la vérité, `verifie` frappait un bloc hors de portée 68 % du temps : il creuse un tunnel, puis tape sur le fond. Le détecteur d'origine n'avait jamais vu de tunnel. Après réentraînement, les frappes dans le vide tombent de 65 % à 28 %.
+Entre les arènes 3 et 4, une seule chose change : le détecteur est réentraîné avec 2 194 coups joués par l'agent dans les arènes, étiquetés par le jeu (`detecteur_v3.py`). Même réseau, même programme. Mesuré avec la vérité, `verifie` frappait un bloc hors de portée 68 % du temps, presque toujours entre 4,5 et 8 blocs. J'en ai d'abord conclu qu'il tapait sur le fond du tunnel qu'il creuse : c'était une hypothèse, que la contre-épreuve du 10/11 contredit. Après réentraînement, les frappes dans le vide tombent de 65 % à 28 %.
 
 - **Leçon 24 : les erreurs d'un agent sont les données qui lui manquent.** La sonde produisait des coups propres, sur place. L'agent, lui, se met dans des situations que la sonde ne crée jamais. Quelques heures de ses propres parties, étiquetées par le jeu, ont corrigé ce que la sonde ne pouvait pas montrer.
 - **Limites :** `verifie` et `appris` ont été conçus après avoir vu les arènes 1 à 3 ; l'arène 4 est le seul test propre, jouée une fois. Deux salles sur 16 étaient ratées, les mêmes pour tous (départ dans un bloc, salle ouverte sur une grotte inondée) ; sans elles, 14/14. Le réentraînement coûte 1,9 point d'AUC sur l'ancienne validation (écart [-3,4 ; -0,6]). Le script `mine_et_balaye` garde la même graine d'une manche à l'autre : ses scores se répètent d'une arène à l'autre au même numéro de manche, ce qui vient de son tirage, pas des salles (images de départ vérifiées différentes).
 - **Ce que ça ne dit pas :** le world model n'a aucun rôle dans ce gain. Le rêveur fait à peine mieux que taper sans bouger.
 
+## 2026-11-10 - Contre-épreuve : l'explication du tunnel était fausse
+
+Deux défauts de salle corrigés : le gravier du plafond tombait dans la cavité (départ dans un bloc), et une grotte voisine pouvait ouvrir la salle sur le vide. Gravier, sable et liquides autour de la salle sont remplacés par de la pierre, les grottes sont bouchées sur 5 blocs, et une salle est refusée si le bloc visé au départ n'est pas à portée.
+
+| arène 5, salles fermées, 6 manches | blocs en 30 s | frappes trop loin |
+|---|---|---|
+| `appris` | 33,7 | 23 % |
+| `verifie` | 27,5 | 12 % |
+| `mine_et_balaye` | 16,3 | |
+| `hasard` | 8,5 | |
+
+`appris` bat encore `verifie` 6 fois sur 6 (p = 0,016), mais l'écart passe de +117 % à +23 %. Les frappes trop loin de `verifie` venaient surtout des parois de grottes autour de la salle, pas du fond de son tunnel : une fois les grottes bouchées, elles tombent de 64 % à 12 %.
+
+L'arène s'est arrêtée à la 7e manche : à minuit, le jeu archive son journal et en recommence un, et mon lecteur restait sur l'ancien fichier. La vérité figée a fait refuser cinq salles de suite. Le lecteur suit maintenant le changement de journal, et une vérité qui n'avance plus arrête tout.
+
+- **Leçon 25 : une explication qu'on n'a pas mesurée reste une hypothèse, même quand elle sonne juste.** J'avais écrit « il tape sur le fond de son tunnel » parce que c'était plausible. Il a suffi de changer la salle pour le démentir.
+
 ### Prochaine session - pistes classées
-1. Construction des salles : vérifier que la cavité est creusée, refuser une salle ouverte sur une grotte ou de l'eau.
+1. ~~Construction des salles~~ → fait le 10/11 (contre-épreuve ci-dessus).
 2. Remettre le world model dans la décision là où le détecteur ne suffit pas : un but à plusieurs étapes (atteindre un minerai visible, puis le casser).
 3. Une seconde arène finale sur d'autres manches, pour savoir si le 15/15 tient.
 4. Une autre tâche que creuser : couper du bois en surface (il faut une hache et ajouter les troncs à la vérité du jeu).

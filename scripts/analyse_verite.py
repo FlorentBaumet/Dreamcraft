@@ -25,6 +25,7 @@ E = ilu.module_from_spec(_s)
 _s.loader.exec_module(E)
 
 Y0, Y1 = E.Y0, E.Y1
+TRONCS = [V.bloc_id(n) for n in V.TRONCS]
 
 
 def coups(path):
@@ -45,6 +46,9 @@ def coups(path):
                "lag": None, "effet": float(np.abs(fr[min(s + E.HREAL, len(fr) - 1), :, Y0:Y1, Y0:Y1]
                                                   - fr[s, :, Y0:Y1, Y0:Y1]).mean()),
                "casse_12": False, "ticks_ok": bool((truth[s:fin + 1, 0] >= 0).all())}
+        # en foret : un tronc (pas une feuille ni l'herbe) casse-t-il en 12 ticks ou moins ?
+        troncs = np.flatnonzero(np.isin(truth[s:fin + 1, 3], TRONCS))
+        rec["tronc_12"] = bool(len(troncs) and truth[s + troncs[0], 0] - truth[s, 0] <= E.HREAL)
         if len(casses):
             f = s + int(casses[0])
             rec.update(casse=int(truth[f, 3]), ticks=int(truth[f, 0] - truth[s, 0]))

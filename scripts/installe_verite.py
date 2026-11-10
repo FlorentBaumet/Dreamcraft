@@ -2,7 +2,7 @@
 Prepare le jeu pour la verite : datapack dans les mondes, taille du chat a 0.
 A lancer jeu ferme : le jeu reecrit options.txt en quittant, et charge le datapack a l'ouverture.
 
-Lance : .venv\\Scripts\\python.exe scripts\\installe_verite.py
+Lance : .venv\\Scripts\\python.exe scripts\\installe_verite.py [mondes, defaut : dc_train dc_test]
 """
 from __future__ import annotations
 
@@ -18,10 +18,13 @@ from dreamcraft import verite as V  # noqa: E402
 
 
 def main():
-    if GW.find_game_window() is not None:
-        sys.exit("Minecraft est ouvert : ferme-le, il ecraserait le reglage du chat en quittant.")
     jeu = V.dossier_jeu()
-    for monde in ("dc_train", "dc_test"):
+    # chat deja masque : seul le datapack change, le jeu peut rester ouvert sur l'ecran titre
+    if GW.find_game_window() is not None and not V.chat_masque(jeu):
+        sys.exit("Minecraft est ouvert : ferme-le, il ecraserait le reglage du chat en quittant.")
+    for monde in sys.argv[1:] or ("dc_train", "dc_test"):
+        if not (jeu / "saves" / monde).is_dir():
+            sys.exit(f"monde {monde} introuvable dans {jeu / 'saves'}")
         print(f"datapack -> {V.installe_pack(monde, jeu)}")
     if V.chat_masque(jeu):
         print("chat deja masque")
