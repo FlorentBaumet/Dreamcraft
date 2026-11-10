@@ -42,12 +42,17 @@ TRONCS = [V.bloc_id(n) for n in V.TRONCS]
 CUBE = "~-12 ~-2 ~-12 ~12 ~22 ~12"                 # 25 x 25 x 25 blocs, sous la limite de /clone
 SAUVE = "~-12 ~-62 ~-12"                           # la copie, 60 blocs sous la surface
 DETECTEUR_BOIS = ROOT / "outputs" / "detecteur_bois" / "model.pt"
+DETECTEUR_BOIS_V3 = ROOT / "outputs" / "detecteur_bois_v3" / "model.pt"     # reentraine sur ses propres coups
+# en foret, les troncs sont a hauteur des yeux et au-dessus : on cherche de l'horizon vers le haut
+# (sous terre : de l'horizon vers le sol). Fixe avant toute arene en foret.
+CIBLES_FORET = (0, -60, 20, -120, 0)
 
 
-def pose(env):
-    """Nouvel endroit, les pieds sur le sol (pas sur les feuilles), copie de sauvegarde."""
+def pose(env, dx=120, dz=0):
+    """Nouvel endroit, les pieds sur le sol (pas sur les feuilles), copie de sauvegarde.
+    Le relief garde ses oceans meme en biome unique : spreadplayers ne pose jamais sur l'eau."""
     env.command("/kill @e[type=marker,tag=dc_foret]")
-    env.command("/tp @s ~60 150 ~ 0 0")
+    env.command(f"/execute at @s positioned ~{dx} ~ ~{dz} run spreadplayers ~ ~ 0 150 false @s")
     time.sleep(2.5)                              # le terrain doit etre charge
     env.command("/execute at @s positioned over motion_blocking_no_leaves run tp @s ~ ~ ~ 0 0")
     time.sleep(1.0)
@@ -68,6 +73,12 @@ def remet(env):
 def endroit_ok(env):
     """Les directions (sur 8) qui montrent un tronc a 8 blocs ou moins. Aucune : endroit refuse."""
     remet(env)
+    # les pieds doivent etre sur un bloc : sur l'eau, le rayon traverse et ne trouve rien de proche
+    env.command(ICI + "tp @s ~ ~ ~ 0 90")
+    sol = AR.verite_fraiche(env, 0.4)
+    if not (sol[1] > 0 and sol[2] <= 25):
+        print(f"[endroit refuse] pas de sol sous les pieds (bloc {sol[1]}, distance {sol[2] / 10:.1f})", flush=True)
+        return []
     vues = []
     for yaw in range(0, 360, 45):
         env.command(ICI + f"tp @s ~ ~ ~ {yaw} 0")
@@ -77,14 +88,15 @@ def endroit_ok(env):
     return vues
 
 
-def nouvel_endroit(env, essais=8):
-    for _ in range(essais):
-        pose(env)
+def nouvel_endroit(env, essais=12):
+    for k in range(essais):
+        # vers l'est ; apres 3 refus d'affilee, grand saut de cote (un ocean peut etre large)
+        pose(env, *((120, 0) if k < 3 else (0, 400 * (1 if k % 2 else -1))))
         vues = endroit_ok(env)
         if vues:
             print(f"[endroit] tronc visible dans {len(vues)} directions sur 8", flush=True)
             return vues
-        print("[endroit refuse] aucun tronc a 8 blocs : on va plus loin", flush=True)
+        print("[endroit refuse] aucun tronc a 8 blocs, ou pas de sol : on va plus loin", flush=True)
     raise RuntimeError(f"aucun arbre trouve en {essais} essais : monde de foret ?")
 
 
@@ -171,7 +183,11 @@ def main():
 
     joueurs = {"mine_et_balaye": A.ScriptedPolicy(), "hasard": A.RandomPolicy(), "taper": A.TaperPolicy()}
     if DETECTEUR_BOIS.exists():
-        joueurs = {"bucheron": AR.DetecteurPolicy(device, verifie=True, modele=DETECTEUR_BOIS), **joueurs}
+        joueurs = {"bucheron": AR.DetecteurPolicy(device, verifie=True, modele=DETECTEUR_BOIS, cibles=CIBLES_FORET),
+                   **joueurs}
+    if DETECTEUR_BOIS_V3.exists():
+        joueurs = {"bucheron_appris": AR.DetecteurPolicy(device, verifie=True, modele=DETECTEUR_BOIS_V3,
+                                                         cibles=CIBLES_FORET), **joueurs}
     if args.joueurs:
         joueurs = {k: joueurs[k] for k in args.joueurs.split(",")}
 

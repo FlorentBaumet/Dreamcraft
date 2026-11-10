@@ -28,7 +28,9 @@ _s.loader.exec_module(D)
 
 OUT = Path(os.environ.get("DC_OUT", D.ROOT / "outputs" / "detecteur_v3"))
 ENGAGE = 12
-AGENTS = ("verifie", "detecteur")
+AGENTS = os.environ.get("DC_AGENTS", "verifie,detecteur").split(",")
+AGENT_GLOB = os.environ.get("DC_AGENT_GLOB", "dc_arene_*")
+TRONCS = [D.AV.V.bloc_id(n) for n in D.AV.V.TRONCS]
 
 
 def coups_agent(path):
@@ -47,7 +49,8 @@ def coups_agent(path):
             w = tr[s:s + ENGAGE + 1]
             if not (w[:, 0] >= 0).all():
                 continue
-            c = np.flatnonzero(w[:, 3] > 0)
+            # meme label que la sonde : n'importe quel bloc, ou un tronc en foret (DC_LABEL=tronc_12)
+            c = np.flatnonzero(np.isin(w[:, 3], TRONCS) if D.LABEL == "tronc_12" else w[:, 3] > 0)
             out.append({"t": s, "casse_12": bool(len(c) and w[c[0], 0] - w[0, 0] <= ENGAGE),
                         "portee": bool(tr[s, 1] > 0 and tr[s, 2] <= 45)})
         t = fin
@@ -69,8 +72,8 @@ def charge_agent(paths):
 
 
 def sessions_agent():
-    return [p for p in sorted(D.DATA.glob("dc_arene_*.npz"))
-            if "essai" not in p.name and p.name.split("_")[2] in AGENTS]
+    return [p for p in sorted(D.DATA.glob(f"{AGENT_GLOB}.npz"))
+            if "essai" not in p.name and any(f"_{a}_" in p.name for a in AGENTS)]
 
 
 def main():
@@ -79,12 +82,12 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     OUT.mkdir(parents=True, exist_ok=True)
 
-    train_files = [p for p in sorted(D.DATA.glob("dc_train*.npz")) if "truth" in np.load(p).files]
+    train_files = [p for p in sorted(D.DATA.glob(f"{D.TRAIN}.npz")) if "truth" in np.load(p).files]
     val_files = train_files[4::5]
     fit_files = [p for p in train_files if p not in val_files]
     ag = sessions_agent()
     ag_val, ag_fit = ag[4::5], [p for p in ag if p not in ag[4::5]]
-    fit, val, test = D.charge(fit_files), D.charge(val_files), D.charge(sorted(D.DATA.glob("vt_test*.npz")))
+    fit, val, test = D.charge(fit_files), D.charge(val_files), D.charge(sorted(D.DATA.glob(f"{D.TEST}.npz")))
     afit, aval = charge_agent(ag_fit), charge_agent(ag_val)
     print(f"sonde : {len(fit[1])} coups | agent : {len(afit[1])} coups ({len(ag_fit)} sessions), "
           f"{afit[1].mean():.0%} cassent, {afit[3].mean():.0%} a portee | agent garde : {len(aval[1])} coups "

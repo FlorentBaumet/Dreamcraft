@@ -68,7 +68,8 @@ class DetecteurPolicy:
     CIBLES = (30, 110, 60, 160, 0)          # inclinaison visee, en pixels souris (+ = vers le bas)
     CHANGE = 2.0
 
-    def __init__(self, device, seuil=0.5, engage=3, verifie=False, modele=None):
+    def __init__(self, device, seuil=0.5, engage=3, verifie=False, modele=None, cibles=None):
+        self.cibles = cibles or self.CIBLES
         self.m = D.Net().to(device)
         self.m.load_state_dict(torch.load(modele or D.OUT / "model.pt", weights_only=True))
         self.m.eval()
@@ -99,7 +100,7 @@ class DetecteurPolicy:
             v[:REPLAN, A.IDX["avancer"]] = 1.0
             v[:REPLAN, A.IDX["sauter"]] = 1.0
             return v, "avancer"
-        cible = self.CIBLES[(self.vide // 3) % len(self.CIBLES)]
+        cible = self.cibles[(self.vide // 3) % len(self.cibles)]
         dy = float(np.clip((cible - self.pitch) / (REPLAN * A.CAM_CLIP), -0.5, 0.5))
         v[:REPLAN, A.CAM_DX] = 0.4
         v[:REPLAN, A.CAM_DY] = dy
