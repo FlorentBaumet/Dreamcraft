@@ -58,6 +58,8 @@ def charge(paths):
         y += [c[LABEL] for c in cs]
         g += [k] * len(cs)
         tex.append(U.b0_texture(fr, t))
+    if not X:                                    # pas encore de sessions de test : ensemble vide
+        return np.zeros((0, 3, 64, 64), np.uint8), np.array([]), np.array([]), np.array([])
     return np.concatenate(X), np.array(y), np.array(g), np.concatenate(tex)
 
 
