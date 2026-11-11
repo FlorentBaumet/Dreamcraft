@@ -9,8 +9,8 @@ evenements de minage d'episodes JAMAIS VUS.
   - TIMIDE    : reste plat (le reve fige la scene)
   - COURAGEUX : monte (le reve s'engage)
 
-Deux panneaux : domaine DENSE (strip) vs domaine RARE (nvcave) -> montre que
-le meme modele s'engage la ou il a vu l'evenement souvent, et se fige ailleurs.
+Deux domaines : DENSE (strip) et RARE (nvcave). Ecrit les courbes moyennes dans
+outputs/diag/engagement.json ; la figure est dessinee par scripts/figures_readme.py.
 
 Lance : .venv\\Scripts\\python.exe scripts\\figure_engagement.py
 """
@@ -20,12 +20,8 @@ import json
 import sys
 from pathlib import Path
 
-import matplotlib
 import numpy as np
 import torch
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -36,10 +32,11 @@ from dreamcraft.models.conv_predictor import ConvPredictor  # noqa: E402
 H = 20
 PATCH = (26, 38)
 MAX_EV = 120
-MODELS = {"timide (baseline)": ROOT / "outputs" / "v6-nvcave" / "model_best.pt",
-          "courageux (in-domain)": ROOT / "outputs" / "v13b-indomain" / "model_best.pt"}
-PANELS = [("domaine DENSE - strip (~80 % minage)", ["strip_051", "strip_052"]),
-          ("domaine RARE - nvcave (~35 % minage)", ["nvcave_008", "nvcave_026"])]
+OUT = ROOT / "outputs" / "diag" / "engagement.json"
+MODELS = {"timide": ROOT / "outputs" / "v6-nvcave" / "model_best.pt",
+          "nourri": ROOT / "outputs" / "v13b-indomain" / "model_best.pt"}
+PANELS = [("dense", ["strip_051", "strip_052"]),       # strip, ~80 % de minage
+          ("rare", ["nvcave_008", "nvcave_026"])]      # grottes, ~35 % de minage
 
 
 def load_ep(stem):
@@ -94,10 +91,9 @@ def real_curve(fr_u8, evs):
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     loaded = {n: load_model(p, device) for n, p in MODELS.items()}
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5), sharey=True)
-
-    for ax, (title, stems) in zip(axes, PANELS):
-        acc = {"REEL": [], **{n: [] for n in MODELS}}
+    res = {}
+    for title, stems in PANELS:
+        acc = {"reel": [], **{n: [] for n in MODELS}}
         for stem in stems:
             fr, actions, ok = load_ep(stem)
             tap = actions[:, 6] > 0.5
@@ -107,29 +103,14 @@ def main():
                 evs = [evs[i] for i in np.linspace(0, len(evs) - 1, MAX_EV).astype(int)]
             if not evs:
                 continue
-            acc["REEL"].append(real_curve(fr, evs))
+            acc["reel"].append(real_curve(fr, evs))
             for n, (m, ctx) in loaded.items():
                 acc[n].append(curves(m, ctx, fr, actions, evs, device))
-        hs = np.arange(1, H + 1)
-        styles = {"REEL": ("k", "-", 2.8), "timide (baseline)": ("tab:gray", "--", 2.2),
-                  "courageux (in-domain)": ("tab:green", "-", 2.6)}
-        for n, arrs in acc.items():
-            if not arrs:
-                continue
-            m = np.concatenate(arrs).mean(axis=0)
-            c, ls, lw = styles[n]
-            ax.plot(hs, m, color=c, ls=ls, lw=lw, label=n)
-        ax.set_title(title, fontsize=11)
-        ax.set_xlabel("pas du reve h")
-        ax.grid(alpha=.3)
-        ax.legend(fontsize=9)
-    axes[0].set_ylabel("changement du bloc vise (0 = scene figee)")
-    fig.suptitle("Le reve s'engage-t-il sur l'evenement ?  -  moyenne sur episodes JAMAIS VUS",
-                 fontsize=13)
-    fig.tight_layout()
-    out = ROOT / "outputs" / "figure_engagement.png"
-    fig.savefig(out, dpi=130)
-    print(f"-> {out.relative_to(ROOT)}")
+        res[title] = {n: np.concatenate(a).mean(axis=0).tolist() for n, a in acc.items() if a}
+        res[title]["evenements"] = int(sum(len(a) for a in acc["reel"]))
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(json.dumps(res, indent=1), encoding="utf-8")
+    print(f"-> {OUT.relative_to(ROOT)}  (figure : scripts/figures_readme.py)")
 
 
 if __name__ == "__main__":

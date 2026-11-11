@@ -46,7 +46,7 @@ Les scripts sont gardés à plat, dans l'ordre où le projet les a produits. Ce 
 
 | script | rôle |
 |---|---|
-| `figure_engagement.py` | le rêve s'engage-t-il sur l'événement ? (réel / timide / courageux) |
+| `figure_engagement.py` | le rêve s'engage-t-il sur l'événement ? calcule les courbes (`outputs/diag/engagement.json`) |
 | `gif_courage.py` | GIF timide vs courageux |
 
 ## Monde 2 : choisir
@@ -77,4 +77,5 @@ Les scripts sont gardés à plat, dans l'ordre où le projet les a produits. Ce 
 | `arene.py` | **l'arène à salles identiques** : même salle pour chaque joueur, blocs cassés en 30 s, test de signe |
 | `detecteur_v3.py` | le même détecteur réentraîné avec les coups joués par l'agent dans les arènes |
 | `figure_arene.py` | figure de l'arène finale (`docs/figures/figure_arene.png`) |
+| `figures_readme.py` | redessine les trois figures de résultats du README à partir des chiffres déjà mesurés |
 | `foret.py` | en surface, en forêt : collecte de sonde et arène « couper du bois » (score : troncs cassés) |

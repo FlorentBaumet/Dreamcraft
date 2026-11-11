@@ -33,7 +33,7 @@ Avec les mêmes 3,65 M de paramètres, nourrir le modèle de vidéos de minage (
 
 <p align="center"><img src="docs/figures/figure_engagement.png" width="760" alt="Courbe d'engagement réel / timide / courageux"></p>
 
-Sur des épisodes exclus de l'entraînement (mais découpés dans les mêmes vidéos, voir Méthode), le modèle nourri en domaine dense rattrape **44 %** de l'écart avec la réalité, contre **15 %** hors domaine. Tous les rêves restent en dessous de la réalité : les bonnes données divisent l'écart par deux environ, elles ne le suppriment pas.
+Sur des épisodes exclus de l'entraînement (mais découpés dans les mêmes vidéos, voir Méthode), au bout de 20 pas, le modèle nourri en domaine dense rattrape **45 %** de l'écart entre le modèle de référence et la réalité, contre **15 %** hors domaine. Tous les rêves restent en dessous de la réalité : les bonnes données divisent l'écart par deux environ, elles ne le suppriment pas.
 
 ### 2. L'effet de l'action s'efface avec l'horizon
 

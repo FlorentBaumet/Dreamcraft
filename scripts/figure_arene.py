@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "outputs" / "arene" / "resultats_20261109-191206.json"
 DATA = ROOT / "data" / "processed_agent"
 OUT = ROOT / "docs" / "figures" / "figure_arene.png"
-DEBUT = "20261109-1830"                     # sessions de l'arene finale : apres cette heure
+DEBUT, FIN = "20261109-1830", "20261109-1913"   # sessions de l'arene finale (la contre-epreuve vient apres)
 RATEES = (11, 12)                           # manches 12 et 13 (indices) : salles mal construites
 
 FOND, ENCRE, ENCRE2, GRILLE = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
@@ -30,7 +30,7 @@ NOMS = {"appris": "appris\n(verifie + détecteur v3)", "mine_et_balaye": "mine_e
 def frappes_dans_le_vide(joueur):
     tot = vide = 0
     for p in DATA.glob(f"dc_arene_{joueur}_*.npz"):
-        if p.stem.split("_")[-1] <= DEBUT:
+        if not DEBUT < p.stem.split("_")[-1] <= FIN:
             continue
         z = np.load(p)
         ph = z["phase"]
@@ -73,7 +73,7 @@ def main():
         b.text(i, 100 * p + 2, f"{100 * p:.0f} %", ha="center", va="bottom", fontweight="bold")
     b.set_xticks([0, 1], ["verifie", "appris"])
     b.set_ylim(0, 100)
-    b.set_ylabel("% des frappes sur un bloc hors de portée")
+    b.set_ylabel("% des frappes dans le vide (rien visé, ou trop loin)")
     b.set_title("Frappes dans le vide", loc="left", fontsize=11)
 
     for ax in (a, b):
