@@ -113,10 +113,13 @@ def main():
 
     sign = 1.0 if U.auc(fit[3], fit[1]) >= 0.5 else -1.0           # sens du contraste, appris ici seulement
     m = Net().to(device)
+    if os.environ.get("DC_NOTER_SEUL"):              # le modele deja sauvegarde, note sur un test arrive apres
+        m.load_state_dict(torch.load(OUT / "model.pt", map_location=device, weights_only=True))
+        print(f"modele recharge : {OUT / 'model.pt'} (pas d'entrainement)")
     opt = torch.optim.AdamW(m.parameters(), lr=1e-3, weight_decay=1e-4)
     loss_fn = nn.BCEWithLogitsLoss()
     X, y = torch.from_numpy(fit[0]), torch.from_numpy(fit[1].astype(np.float32))
-    for ep in range(EPOCHS):
+    for ep in range(0 if os.environ.get("DC_NOTER_SEUL") else EPOCHS):
         m.train()
         perm = torch.randperm(len(X))
         tot = 0.0
@@ -129,7 +132,8 @@ def main():
             tot += loss.item() * len(j)
         print(f"epoque {ep + 1:2d} : perte {tot / len(X):.3f} | AUC validation "
               f"{U.auc(predit(m, val[0], device), val[1]):.1%}", flush=True)
-    torch.save(m.state_dict(), OUT / "model.pt")
+    if not os.environ.get("DC_NOTER_SEUL"):
+        torch.save(m.state_dict(), OUT / "model.pt")
 
     res = {"epoques": EPOCHS, "sens_contraste": sign}
     for nom, d in (("validation", val), ("test", test)):
