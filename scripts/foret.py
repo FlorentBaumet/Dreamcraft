@@ -1,8 +1,9 @@
 """
 En surface, en foret : couper du bois. Meme principe que l'arene sous terre, adapte aux arbres.
 
-Chaque manche : un nouvel endroit 60 blocs plus loin, pose sur le sol, avec au moins un tronc
-visible a 8 blocs ou moins (verite du jeu, en tournant la tete sur 8 directions). Un cube de
+Chaque manche : un nouvel endroit environ 120 blocs plus loin, pose sur la terre ferme par spreadplayers
+(le biome unique garde ses oceans), avec un sol sous les pieds et au moins un tronc visible a 8 blocs
+ou moins (verite du jeu, en tournant la tete sur 8 directions). Un cube de
 25 blocs autour (arbres compris) est copie sous la carte, puis remis a l'identique avant chaque
 joueur : tout le monde trouve les memes arbres. Hache en diamant : un tronc casse en 8 ticks.
 
@@ -12,9 +13,10 @@ Deux usages :
 
 Monde de foret (type « Biome unique », Foret) avec la verite installee, clique dans le jeu, puis :
   .venv\\Scripts\\python.exe scripts\\foret.py --essai
-  .venv\\Scripts\\python.exe scripts\\foret.py --collecte 40
-  .venv\\Scripts\\python.exe scripts\\foret.py --collecte 5 --tag vt_foret     (test, plus loin)
-  .venv\\Scripts\\python.exe scripts\\foret.py --manches 16
+  .venv\\Scripts\\python.exe scripts\\foret.py --collecte 80
+  (detecteur bois : voir l'en-tete de scripts\\detecteur.py)
+  .venv\\Scripts\\python.exe scripts\\foret.py --collecte 10 --tag vt_foret --manches 16
+Un seul processus pour enchainer : un second script lance a la suite peut trouver le jeu au second plan.
 Basculer sur une autre fenetre arrete tout, proprement.
 """
 from __future__ import annotations

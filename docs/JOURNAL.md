@@ -368,8 +368,30 @@ L'arène s'est arrêtée à la 7e manche : à minuit, le jeu archive son journal
 
 - **Leçon 25 : une explication qu'on n'a pas mesurée reste une hypothèse, même quand elle sonne juste.** J'avais écrit « il tape sur le fond de son tunnel » parce que c'était plausible. Il a suffi de changer la salle pour le démentir.
 
+## 2026-11-11 - En surface : couper du bois
+
+Deuxième tâche, même méthode. Un monde « Biome unique : Forêt », une hache en diamant (un tronc casse en 8 ticks), la vérité du jeu étendue aux troncs, aux feuilles et à l'herbe. Le cube remis à l'identique fait 25 blocs de côté, arbres compris.
+
+Deux pièges avant la première donnée utile :
+- **Le biome unique garde ses océans.** Avancer de 60 blocs tout droit à chaque manche menait le joueur dans l'eau, où il n'y a ni sol ni tronc. Il est maintenant posé par `spreadplayers`, qui évite les liquides, et un regard vers le bas vérifie qu'il a un sol sous les pieds.
+- **La sonde jouait une décision tous les 4 pas.** Avec ce rythme, une session ne contenait que 4 coups. Une décision par image en donne 26.
+
+Collecte de nuit : 80 sessions de sonde, 149 troncs cassés. Avec 2 sessions plus anciennes : 2 132 coups, dont 125 cassent un tronc en 12 ticks (5,9 %). Les 10 sessions de test n'ont pas démarré : lancées par un second script juste après le premier, elles ont trouvé le jeu au second plan, et le script s'arrête dans ce cas sans rien envoyer. Cinq heures perdues, mais aucune session faussée. Elles ont été jouées plus tard dans la journée, dans le même processus que l'arène.
+
+| détecteur bois, AUC | détecteur | contraste |
+|---|---|---|
+| validation, 416 coups, 16 sessions | 92,5 % | 55,4 % |
+| test, 260 coups, 10 sessions | 94,5 % | 51,5 % |
+
+Le test a été enregistré après l'entraînement : le modèle a été rechargé et noté sans être réentraîné (empreinte du fichier inchangée, validation identique au chiffre près). Écart avec le contraste [+25,5 ; +58,6] : réussi selon la règle fixée avant.
+
+Arène de 16 manches, 60 s par joueur, règle et regard du `bucheron` fixés avant de jouer : `bucheron` 55 troncs, `mine_et_balaye` 20, `hasard` 12, `taper` 4. `bucheron` bat le script 12 fois sur 14 manches décisives (p = 0,006). Il frappe dans le vide 33 % du temps (28 frappes sur rien, 21 sur un bloc trop loin, sur 147).
+
+- **Leçon 26 : une nuit sans surveillance se prépare comme un seul bloc.** Chaque reprise entre deux programmes suppose un état que personne ne vérifie, ici la fenêtre au premier plan. Le script a eu raison de s'arrêter plutôt que de taper au hasard dans une autre fenêtre ; la faute était de lui demander de repartir seul.
+
 ### Prochaine session - pistes classées
 1. ~~Construction des salles~~ → fait le 10/11 (contre-épreuve ci-dessus).
 2. Remettre le world model dans la décision là où le détecteur ne suffit pas : un but à plusieurs étapes (atteindre un minerai visible, puis le casser).
 3. Une seconde arène finale sur d'autres manches, pour savoir si le 15/15 tient.
-4. Une autre tâche que creuser : couper du bois en surface (il faut une hache et ajouter les troncs à la vérité du jeu).
+4. ~~Une autre tâche que creuser : couper du bois en surface~~ → fait le 11/11 (ci-dessus).
+5. Réentraîner le détecteur bois sur les coups du `bucheron` (33 % de frappes dans le vide), puis une arène sur des manches neuves.

@@ -13,6 +13,8 @@ Lance : .venv\\Scripts\\python.exe scripts\\detecteur.py
 
 En foret (un tronc casse-t-il en 12 ticks ?), memes regles, autres donnees :
   DC_LABEL=tronc_12 DC_TRAIN="dc_foret_probe*" DC_TEST="vt_foret*" DC_DET_OUT=outputs/detecteur_bois
+Sessions de test enregistrees apres l'entrainement : ajouter DC_NOTER_SEUL=1 pour noter le modele
+deja sauvegarde, sans le reentrainer (la validation ressort a l'identique).
 """
 from __future__ import annotations
 

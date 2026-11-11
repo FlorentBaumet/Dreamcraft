@@ -1,7 +1,7 @@
 # DREAMCRAFT - un world model visuel de Minecraft
 
 > **Projet de recherche en cours (work in progress).**
-> Le Monde 1 (prédire) et le choix hors ligne du Monde 2 sont faits et mesurés. Un agent joue maintenant au vrai jeu : dans une arène où tous les joueurs reçoivent la même salle, **il casse près de deux fois plus de blocs qu'un script écrit à la main** (section [En jeu](#en-jeu--un-agent-qui-apprend-de-ses-propres-erreurs)). Ce gain vient d'un détecteur appris, pas encore du world model. Résultats intermédiaires, pistes négatives comprises. Dernière mise à jour : 9 novembre 2026.
+> Le Monde 1 (prédire) et le choix hors ligne du Monde 2 sont faits et mesurés. Un agent joue maintenant au vrai jeu : dans une arène où tous les joueurs reçoivent la même salle, **il casse près de deux fois plus de blocs qu'un script écrit à la main** (section [En jeu](#en-jeu--un-agent-qui-apprend-de-ses-propres-erreurs)). En forêt, la même méthode coupe près de trois fois plus de bois que le script. Ce gain vient d'un détecteur appris, pas encore du world model. Résultats intermédiaires, pistes négatives comprises. Dernière mise à jour : 11 novembre 2026.
 
 Un modèle qui **rêve la suite d'une partie** : à partir des dernières images et d'une action (« j'avance », « je tape »), il prédit les images suivantes. L'objectif final est qu'il se serve de ces rêves pour **décider seul** de ses actions.
 
@@ -128,8 +128,35 @@ Les frappes dans le vide passent de 65 % à 28 %, et l'agent casse **près de de
 - `verifie` et `appris` ont été conçus après avoir vu les arènes précédentes. L'arène finale et la contre-épreuve sont les seuls tests propres.
 - Deux salles sur 16 étaient mal construites, les mêmes pour tous : départ coincé dans un bloc (manche 12), salle ouverte sur une grotte inondée (manche 13). Sans elles, `appris` bat `verifie` 14 fois sur 14.
 - Le réentraînement coûte un peu sur l'ancienne tâche : 91,0 % contre 92,9 % en validation (écart [-3,4 ; -0,6]), 87,8 % contre 91,1 % en test (écart non significatif).
-- Une seule tâche (casser des blocs sous terre), un seul outil (pioche en diamant).
+- Sous terre, une seule tâche (casser des blocs) et un seul outil (pioche en diamant). La forêt, ci-dessous, est une deuxième tâche.
 - Le world model ne sert pas à cette décision. Le gain vient de la boucle « prédire, agir, vérifier, réapprendre », appliquée à un détecteur simple.
+
+### En surface : couper du bois
+
+Même méthode, autre tâche : un monde de forêt, une hache en diamant, et la vérité du jeu étendue aux troncs. À chaque manche, l'agent est posé sur la terre ferme, avec au moins un tronc en vue à moins de 8 blocs. Un cube de 25 blocs autour de lui, arbres compris, est copié sous la carte, puis remis à l'identique avant chaque joueur.
+
+Le détecteur est le même réseau, entraîné de zéro par le même programme sur 82 sessions de sonde en forêt, avec une autre question : « si je tape maintenant, un tronc cassera-t-il dans les 12 ticks ? ». Les feuilles et l'herbe, qui cassent aussi à la hache, ne comptent pas.
+
+| AUC (50 % = hasard) | détecteur bois | contraste, sans modèle |
+|---|---|---|
+| validation, 416 coups | **92,5 %** | 55,4 % |
+| test, 260 coups enregistrés après l'entraînement | **94,5 %** | 51,5 % |
+
+L'agent `bucheron` reprend les règles de `verifie` sans les modifier. Seuls changent le détecteur et la recherche du regard : de l'horizon vers le haut, au lieu de l'horizon vers le sol. Arène de 16 manches, règle fixée avant de jouer :
+
+| joueur | troncs cassés en 60 s, total des 16 manches | moyenne par manche |
+|---|---|---|
+| `bucheron` | **55** | 3,4 |
+| `mine_et_balaye` | 20 | 1,25 |
+| `hasard` | 12 | 0,75 |
+| `taper` | 4 | 0,25 |
+
+`bucheron` bat le script 12 manches sur 14 décisives (p = 0,006), le hasard 13 sur 14 (p = 0,001) et `taper` 15 sur 15. Il coupe **près de trois fois plus de bois que le script**.
+
+**Limites de la forêt :**
+- Une seule arène, jouée une fois. Le test du détecteur et l'arène ont lieu dans le même monde que l'apprentissage, à d'autres endroits.
+- Les départs sont moins identiques que sous terre : jusqu'à 10,6 sur 255 d'écart entre les images de départ. Sans doute le ciel, les feuilles ou les animaux, non vérifié.
+- 33 % des frappes de `bucheron` tombent dans le vide (rien de visé, ou un bloc hors de portée). Sous terre, réentraîner le détecteur sur les coups de l'agent avait corrigé ce défaut. Ce n'est pas encore fait en forêt.
 
 ## Méthode
 
@@ -152,7 +179,7 @@ Les frappes dans le vide passent de 65 % à 28 %, et l'agent casse **près de de
 
 ## Journal de recherche
 
-Tout le cheminement est consigné dans [docs/JOURNAL.md](docs/JOURNAL.md) : 25 leçons, **pistes négatives comprises** (gamma simulé, montée en capacité, résolution 96 px, première tentative de données confondue). C'est le document à lire pour comprendre *pourquoi* chaque choix a été fait.
+Tout le cheminement est consigné dans [docs/JOURNAL.md](docs/JOURNAL.md) : 26 leçons, **pistes négatives comprises** (gamma simulé, montée en capacité, résolution 96 px, première tentative de données confondue). C'est le document à lire pour comprendre *pourquoi* chaque choix a été fait.
 
 ## Organisation du repo
 
@@ -208,6 +235,18 @@ En jeu : Minecraft 1.19.4 ouvert sur un monde, fenêtre au premier plan. La vér
 .venv\Scripts\python.exe scripts\arene.py --manches 16 --joueurs appris,verifie,mine_et_balaye,hasard --agent appris
 ```
 
+En forêt, sur un monde « Biome unique : Forêt » où la vérité est installée (`installe_verite.py dc_foret`) :
+
+```bash
+.venv\Scripts\python.exe scripts\foret.py --collecte 80
+```
+
+Puis le détecteur bois (`detecteur.py` avec `DC_LABEL=tronc_12`, commande complète dans son en-tête). Les sessions de test et l'arène s'enchaînent dans un seul processus, pour garder la fenêtre du jeu au premier plan :
+
+```bash
+.venv\Scripts\python.exe scripts\foret.py --collecte 10 --tag vt_foret --manches 16
+```
+
 Basculer sur une autre fenêtre arrête l'arène proprement. Les checkpoints ne sont pas versionnés (trop lourds) : les scripts attendent les modèles de référence dans `outputs/`.
 
 ## Statut
@@ -223,6 +262,7 @@ Basculer sur une autre fenêtre arrête l'arène proprement. Les checkpoints ne 
 | Paires contrefactuelles en jeu, réentraînement du world model | fait : gain réel, mais sous une mesure sans modèle |
 | Détecteur appris « ce coup va-t-il casser un bloc ? » | fait : 91,1 % d'AUC sur un monde jamais vu |
 | Agent qui réapprend sur ses propres erreurs, arène à salles identiques | fait : bat le script 15 manches sur 16 |
+| Deuxième tâche en surface : couper du bois | fait : près de trois fois plus de troncs que le script |
 | Remettre le world model dans la décision, buts à plusieurs étapes | prochaine étape |
 
 ## Crédits
